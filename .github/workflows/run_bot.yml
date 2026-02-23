@@ -1,5 +1,5 @@
-name: MindsetForge Bot
 
+  name: MindsetForge Bot
   on:
     schedule:
       - cron: '30 6 * * *'
@@ -8,29 +8,23 @@ name: MindsetForge Bot
       - cron: '30 13 * * *'
       - cron: '30 18 * * *'
     workflow_dispatch:
-
   jobs:
     run-bot:
       runs-on: ubuntu-latest
       timeout-minutes: 15
-
       steps:
-        - name: Repoyu indir
+        - name: Checkout
           uses: actions/checkout@v4
-
-        - name: Python kur
+        - name: Python
           uses: actions/setup-python@v5
           with:
             python-version: '3.11'
-
-        - name: ffmpeg kur
+        - name: ffmpeg
           run: sudo apt-get install -y ffmpeg
-
-        - name: Bagimliliklari yukle
+        - name: Deps
           run: pip install -r requirements.txt
-
-        - name: Botu calistir
+        - name: Run
           env:
-            TOKEN_JSON:  ${{ secrets.TOKEN_JSON }}
+            TOKEN_JSON: ${{ secrets.TOKEN_JSON }}
             SECRET_JSON: ${{ secrets.SECRET_JSON }}
           run: python 3_mindset_motivasyon_bot.py
