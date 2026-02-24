@@ -250,14 +250,17 @@ def render_quote_on_image(bg_path, quote):
     img = img_rgba.convert("RGB")
     draw = ImageDraw.Draw(img)
 
-    # Font yükle (Windows'ta mevcut bold fontlar)
+    # Font yükle (Linux + Windows uyumlu)
     font_size = 72
     font = None
     bold_fonts = [
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+        "/usr/share/fonts/truetype/ubuntu/Ubuntu-B.ttf",
+        "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf",
         "C:\\Windows\\Fonts\\impact.ttf",
         "C:\\Windows\\Fonts\\arialbd.ttf",
         "C:\\Windows\\Fonts\\calibrib.ttf",
-        "C:\\Windows\\Fonts\\georgiabd.ttf",  # bazen yok
         "C:\\Windows\\Fonts\\georgia.ttf",
     ]
     for fp in bold_fonts:
@@ -268,7 +271,7 @@ def render_quote_on_image(bg_path, quote):
             except:
                 continue
     if not font:
-        font = ImageFont.load_default()
+        font = ImageFont.load_default(size=font_size)
 
     # Sözü satırlara böl (max 20 karakter/satır yaklaşık)
     wrapped = textwrap.wrap(quote.upper(), width=18)
@@ -313,11 +316,20 @@ def render_quote_on_image(bg_path, quote):
         except Exception as e:
             print(f"⚠️ Logo eklenemedi: {e}")
 
-    try:
-        fn = ImageFont.truetype("C:\\Windows\\Fonts\\arialbd.ttf", 36)
-        fh = ImageFont.truetype("C:\\Windows\\Fonts\\arial.ttf", 28)
-    except:
-        fn = fh = ImageFont.load_default()
+    fn = fh = None
+    for fp in ["/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+               "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+               "C:\\Windows\\Fonts\\arialbd.ttf"]:
+        if os.path.exists(fp):
+            try:
+                fn = ImageFont.truetype(fp, 36)
+                fh = ImageFont.truetype(fp, 28)
+                break
+            except:
+                continue
+    if not fn:
+        fn = ImageFont.load_default(size=36)
+        fh = ImageFont.load_default(size=28)
 
     text_x = logo_pos[0] + logo_size[0] + 18
     draw.text((text_x, logo_y + 12), "MindsetForge", font=fn, fill="white")
