@@ -65,7 +65,7 @@ from google.oauth2.credentials import Credentials
 script_dir = os.path.dirname(os.path.abspath(__file__))
 os.chdir(script_dir)
 
-GROQ_API_KEY = "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"
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 SECRET_PATH = os.path.join(script_dir, "secret.json")
 TOKEN_PATH = os.path.join(script_dir, "token.json")
 LOGO_PATH = None
