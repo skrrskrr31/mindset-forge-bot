@@ -68,6 +68,8 @@ os.chdir(script_dir)
 
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 INSTAGRAM_ACCESS_TOKEN = os.environ.get("INSTAGRAM_ACCESS_TOKEN", "")
+INSTAGRAM_USERNAME = os.environ.get("INSTAGRAM_USERNAME", "dailymindsetforge")
+INSTAGRAM_PASSWORD = os.environ.get("INSTAGRAM_PASSWORD", "")
 SECRET_PATH = os.path.join(script_dir, "secret.json")
 TOKEN_PATH = os.path.join(script_dir, "token.json")
 LOGO_PATH = None
@@ -564,88 +566,23 @@ def upload_to_youtube(quote):
 
 
 # ============================================================
-# ADIM 7: INSTAGRAM'A YÜKLE
+# ADIM 7: INSTAGRAM'A YÜKLE (instagrapi)
 # ============================================================
-def upload_video_to_temp_host(video_path):
-    """Videoyu geçici public sunucuya yükle, URL döndür."""
-    try:
-        print("⏫ Video geçici sunucuya yükleniyor (transfer.sh)...")
-        with open(video_path, 'rb') as f:
-            resp = requests.put(
-                f"https://transfer.sh/{os.path.basename(video_path)}",
-                data=f,
-                headers={"Max-Days": "1", "Max-Downloads": "5"},
-                timeout=120
-            )
-        if resp.status_code == 200:
-            url = resp.text.strip()
-            print(f"✅ Geçici URL: {url}")
-            return url
-    except Exception as e:
-        print(f"⚠️ transfer.sh hatası ({e}), 0x0.st deneniyor...")
-    try:
-        with open(video_path, 'rb') as f:
-            resp = requests.post("https://0x0.st", files={"file": f}, timeout=120)
-        if resp.status_code == 200:
-            url = resp.text.strip()
-            print(f"✅ Geçici URL: {url}")
-            return url
-    except Exception as e:
-        print(f"⚠️ 0x0.st hatası ({e})")
-    return None
-
-
-def get_instagram_user_id(access_token):
-    """Facebook Page üzerinden Instagram Business Account ID'yi al."""
-    try:
-        resp = requests.get(
-            "https://graph.facebook.com/v19.0/me/accounts",
-            params={"access_token": access_token},
-            timeout=15
-        )
-        result = resp.json()
-        print(f"🔍 me/accounts yaniti: {result}")
-        pages = result.get("data", [])
-        print(f"🔍 Bulunan sayfa sayisi: {len(pages)}")
-        for page in pages:
-            page_id = page["id"]
-            page_token = page.get("access_token", access_token)
-            print(f"🔍 Sayfa kontrol ediliyor: {page_id} - {page.get('name','?')}")
-            ig_resp = requests.get(
-                f"https://graph.facebook.com/v19.0/{page_id}",
-                params={"fields": "instagram_business_account", "access_token": page_token},
-                timeout=15
-            )
-            ig_data = ig_resp.json()
-            print(f"🔍 IG data: {ig_data}")
-            if "instagram_business_account" in ig_data:
-                ig_id = ig_data["instagram_business_account"]["id"]
-                print(f"✅ Instagram Business ID bulundu: {ig_id}")
-                return ig_id, page_token
-    except Exception as e:
-        print(f"⚠️ IG user ID alınamadı: {e}")
-    return None, None
-
-
 def post_to_instagram(video_path, quote, category):
-    """Videoyu Instagram Reels olarak paylaş."""
-    if not INSTAGRAM_ACCESS_TOKEN:
-        print("⚠️ INSTAGRAM_ACCESS_TOKEN bulunamadı, Instagram atlanıyor.")
+    """Videoyu instagrapi ile Instagram Reels olarak paylaş."""
+    if not INSTAGRAM_PASSWORD:
+        print("⚠️ INSTAGRAM_PASSWORD bulunamadı, Instagram atlanıyor.")
         return
 
     print("\n==========================================")
     print("📸 INSTAGRAM'A OTOMATİK YÜKLEME BAŞLIYOR...")
     print("==========================================")
 
-    ig_user_id, token = get_instagram_user_id(INSTAGRAM_ACCESS_TOKEN)
-    if not ig_user_id:
-        print("❌ Instagram hesap ID'si alınamadı. Paylaşım iptal.")
-        return
-    print(f"✅ Instagram Hesap ID: {ig_user_id}")
-
-    video_url = upload_video_to_temp_host(video_path)
-    if not video_url:
-        print("❌ Video URL alınamadı. Instagram paylaşımı iptal.")
+    try:
+        from instagrapi import Client
+        from instagrapi.exceptions import LoginRequired
+    except ImportError:
+        print("❌ instagrapi yüklü değil. pip install instagrapi")
         return
 
     category_hashtags = {
@@ -669,62 +606,37 @@ def post_to_instagram(video_path, quote, category):
     extra = category_hashtags.get(category.lower(), "#quotes #wisdom #truth")
     caption = f'"{quote}"\n\n#motivation #mindset #discipline #success #reels {extra}'
 
-    # Media container oluştur
-    try:
-        container_resp = requests.post(
-            f"https://graph.facebook.com/v19.0/{ig_user_id}/media",
-            data={
-                "media_type": "REELS",
-                "video_url": video_url,
-                "caption": caption,
-                "share_to_feed": "true",
-                "access_token": token
-            },
-            timeout=30
-        )
-        container_data = container_resp.json()
-        if "error" in container_data:
-            print(f"❌ Media container hatası: {container_data['error']['message']}")
-            return
-        container_id = container_data["id"]
-        print(f"✅ Media container oluşturuldu: {container_id}")
-    except Exception as e:
-        print(f"❌ Container oluşturma hatası: {e}")
-        return
+    session_file = os.path.join(script_dir, "instagram_session.json")
 
-    # Video işlenmeyi bekle
-    import time
-    print("⏳ Instagram video işliyor...")
-    for attempt in range(15):
-        time.sleep(10)
-        status_resp = requests.get(
-            f"https://graph.facebook.com/v19.0/{container_id}",
-            params={"fields": "status_code,status", "access_token": token},
-            timeout=15
-        )
-        status_data = status_resp.json()
-        status = status_data.get("status_code", "")
-        print(f"  [{attempt+1}/15] Durum: {status}")
-        if status == "FINISHED":
-            break
-        elif status == "ERROR":
-            print(f"❌ Video işleme hatası: {status_data}")
-            return
-
-    # Yayınla
     try:
-        publish_resp = requests.post(
-            f"https://graph.facebook.com/v19.0/{ig_user_id}/media_publish",
-            data={"creation_id": container_id, "access_token": token},
-            timeout=30
+        cl = Client()
+        cl.delay_range = [1, 3]
+
+        if os.path.exists(session_file):
+            try:
+                cl.load_settings(session_file)
+                cl.login(INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD)
+                print(f"✅ Oturum yüklendi: @{INSTAGRAM_USERNAME}")
+            except LoginRequired:
+                print("⚠️ Oturum süresi dolmuş, yeniden giriş yapılıyor...")
+                cl = Client()
+                cl.delay_range = [1, 3]
+                cl.login(INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD)
+                cl.dump_settings(session_file)
+        else:
+            cl.login(INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD)
+            cl.dump_settings(session_file)
+            print(f"✅ Giriş yapıldı: @{INSTAGRAM_USERNAME}")
+
+        from pathlib import Path
+        media = cl.clip_upload(
+            Path(video_path),
+            caption=caption,
         )
-        publish_data = publish_resp.json()
-        if "error" in publish_data:
-            print(f"❌ Yayınlama hatası: {publish_data['error']['message']}")
-            return
-        print(f"🎉 INSTAGRAM'DA YAYINLANDI! Post ID: {publish_data.get('id', '?')}")
+        print(f"🎉 INSTAGRAM'DA YAYINLANDI! Post ID: {media.pk}")
+
     except Exception as e:
-        print(f"❌ Yayınlama hatası: {e}")
+        print(f"❌ Instagram paylaşım hatası: {e}")
 
 
 # ============================================================
