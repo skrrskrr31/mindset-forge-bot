@@ -17,6 +17,7 @@ import textwrap
 import requests
 import io
 import base64
+import json
 
 # GitHub Actions / Linux ortamında stdout encoding ayarla
 if sys.stdout.encoding != 'utf-8':
@@ -84,13 +85,52 @@ TEMP_MUSIC = "gecici_muzik"
 
 
 # ============================================================
+# KULLANILAN SÖZLER - TEKRAR ÖNLEME
+# ============================================================
+USED_QUOTES_PATH = os.path.join(script_dir, "kullanilan_sozler.json")
+MAX_SAVED_QUOTES = 60
+
+def load_used_quotes():
+    if os.path.exists(USED_QUOTES_PATH):
+        try:
+            with open(USED_QUOTES_PATH, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except:
+            pass
+    return []
+
+def save_used_quote(quote, used_list):
+    used_list.append(quote)
+    if len(used_list) > MAX_SAVED_QUOTES:
+        used_list = used_list[-MAX_SAVED_QUOTES:]
+    try:
+        with open(USED_QUOTES_PATH, "w", encoding="utf-8") as f:
+            json.dump(used_list, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print(f"⚠️ Kullanılan sözler kaydedilemedi: {e}")
+    return used_list
+
+
+# ============================================================
 # ADIM 1: GEMİNİ'DEN VİRAL SÖZ + KATEGORİ AL
 # ============================================================
 def generate_quote():
     print("🤖 Gemini'den viral motivasyon sözü üretiliyor...")
+    used_quotes = load_used_quotes()
+    print(f"📋 Daha önce kullanılan {len(used_quotes)} söz yüklendi.")
+
+    avoid_block = ""
+    if used_quotes:
+        recent = used_quotes[-30:]
+        avoid_list = "\n".join(f'- "{q}"' for q in recent)
+        avoid_block = f"""
+        PREVIOUSLY USED QUOTES (NEVER repeat or closely paraphrase these):
+{avoid_list}
+"""
+
     try:
         client = Groq(api_key=GROQ_API_KEY)
-        prompt = """
+        prompt = f"""
         You are the editor of the most viral English motivation / stoicism / sigma mindset YouTube Shorts channel.
 
         Generate ONE powerful, viral, short motivational or stoic quote in English.
@@ -103,7 +143,8 @@ def generate_quote():
         - The quote must feel SURPRISING or COUNTERINTUITIVE — something the viewer hasn't seen 100 times before
         - Prefer angles like: brutal honesty, dark wisdom, contrarian truth, or a statement that makes someone stop scrolling
         - Examples of good style: "Most people don't fail. They just never truly started.", "Comfort is the most socially accepted form of self-destruction.", "The world rewards performance, not effort."
-
+        - EVERY quote must be 100% unique — never repeat a quote from the list below
+{avoid_block}
         Format EXACTLY like this (no extra text):
         QUOTE: [your quote here]
         CATEGORY: [one category or character from list]
@@ -126,6 +167,7 @@ def generate_quote():
 
         print(f"✅ Söz: \"{quote}\"")
         print(f"🎨 Arka Plan Kategorisi: {category}")
+        save_used_quote(quote, used_quotes)
         return quote, category
     except Exception as e:
         print(f"⚠️ Söz üretilemedi ({e}). Yedek listeden rastgele seçiliyor.")
