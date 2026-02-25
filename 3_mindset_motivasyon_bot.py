@@ -598,24 +598,30 @@ def upload_video_to_temp_host(video_path):
 def get_instagram_user_id(access_token):
     """Facebook Page üzerinden Instagram Business Account ID'yi al."""
     try:
-        # Önce direkt /me ile dene (Creator token)
         resp = requests.get(
             "https://graph.facebook.com/v19.0/me/accounts",
             params={"access_token": access_token},
             timeout=15
         )
-        pages = resp.json().get("data", [])
+        result = resp.json()
+        print(f"🔍 me/accounts yaniti: {result}")
+        pages = result.get("data", [])
+        print(f"🔍 Bulunan sayfa sayisi: {len(pages)}")
         for page in pages:
             page_id = page["id"]
             page_token = page.get("access_token", access_token)
+            print(f"🔍 Sayfa kontrol ediliyor: {page_id} - {page.get('name','?')}")
             ig_resp = requests.get(
                 f"https://graph.facebook.com/v19.0/{page_id}",
                 params={"fields": "instagram_business_account", "access_token": page_token},
                 timeout=15
             )
             ig_data = ig_resp.json()
+            print(f"🔍 IG data: {ig_data}")
             if "instagram_business_account" in ig_data:
-                return ig_data["instagram_business_account"]["id"], access_token
+                ig_id = ig_data["instagram_business_account"]["id"]
+                print(f"✅ Instagram Business ID bulundu: {ig_id}")
+                return ig_id, page_token
     except Exception as e:
         print(f"⚠️ IG user ID alınamadı: {e}")
     return None, None
