@@ -70,6 +70,7 @@ GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 INSTAGRAM_ACCESS_TOKEN = os.environ.get("INSTAGRAM_ACCESS_TOKEN", "")
 INSTAGRAM_USERNAME = os.environ.get("INSTAGRAM_USERNAME", "dailymindsetforge")
 INSTAGRAM_PASSWORD = os.environ.get("INSTAGRAM_PASSWORD", "")
+INSTAGRAM_SESSION_B64 = os.environ.get("INSTAGRAM_SESSION", "")
 SECRET_PATH = os.path.join(script_dir, "secret.json")
 TOKEN_PATH = os.path.join(script_dir, "token.json")
 LOGO_PATH = None
@@ -608,6 +609,15 @@ def post_to_instagram(video_path, quote, category):
 
     session_file = os.path.join(script_dir, "instagram_session.json")
 
+    # Session dosyasini Secret'tan yaz
+    if INSTAGRAM_SESSION_B64 and not os.path.exists(session_file):
+        try:
+            with open(session_file, 'wb') as f:
+                f.write(base64.b64decode(INSTAGRAM_SESSION_B64))
+            print("✅ Instagram session dosyasi yazildi.")
+        except Exception as e:
+            print(f"⚠️ Session dosyasi yazılamadı: {e}")
+
     try:
         cl = Client()
         cl.delay_range = [1, 3]
@@ -616,9 +626,9 @@ def post_to_instagram(video_path, quote, category):
             try:
                 cl.load_settings(session_file)
                 cl.login(INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD)
-                print(f"✅ Oturum yüklendi: @{INSTAGRAM_USERNAME}")
+                print(f"✅ Oturum yuklendi: @{INSTAGRAM_USERNAME}")
             except LoginRequired:
-                print("⚠️ Oturum süresi dolmuş, yeniden giriş yapılıyor...")
+                print("⚠️ Oturum suresi dolmus, yeniden giris yapiliyor...")
                 cl = Client()
                 cl.delay_range = [1, 3]
                 cl.login(INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD)
@@ -626,7 +636,7 @@ def post_to_instagram(video_path, quote, category):
         else:
             cl.login(INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD)
             cl.dump_settings(session_file)
-            print(f"✅ Giriş yapıldı: @{INSTAGRAM_USERNAME}")
+            print(f"✅ Giris yapildi: @{INSTAGRAM_USERNAME}")
 
         from pathlib import Path
         media = cl.clip_upload(
