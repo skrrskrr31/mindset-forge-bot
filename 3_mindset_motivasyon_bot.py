@@ -66,13 +66,15 @@ from google.oauth2.credentials import Credentials
 script_dir = os.path.dirname(os.path.abspath(__file__))
 os.chdir(script_dir)
 
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
+GROQ_API_KEY           = os.environ.get("GROQ_API_KEY", "")
 INSTAGRAM_ACCESS_TOKEN = os.environ.get("INSTAGRAM_ACCESS_TOKEN", "")
-INSTAGRAM_USERNAME = os.environ.get("INSTAGRAM_USERNAME", "dailymindsetforge")
-INSTAGRAM_PASSWORD = os.environ.get("INSTAGRAM_PASSWORD", "")
-INSTAGRAM_SESSION_B64 = os.environ.get("INSTAGRAM_SESSION", "")
+INSTAGRAM_USERNAME     = os.environ.get("INSTAGRAM_USERNAME", "dailymindsetforge")
+INSTAGRAM_PASSWORD     = os.environ.get("INSTAGRAM_PASSWORD", "")
+INSTAGRAM_SESSION_B64  = os.environ.get("INSTAGRAM_SESSION", "")
+TELEGRAM_BOT_TOKEN     = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_CHAT_ID       = os.environ.get("TELEGRAM_CHAT_ID", "")
 SECRET_PATH = os.path.join(script_dir, "secret.json")
-TOKEN_PATH = os.path.join(script_dir, "token.json")
+TOKEN_PATH  = os.path.join(script_dir, "token.json")
 LOGO_PATH = None
 for f in os.listdir(script_dir):
     if f.lower().startswith("logo.") and f.lower().endswith(('.jpg', '.jpeg', '.png')):
@@ -81,6 +83,26 @@ for f in os.listdir(script_dir):
 
 OUTPUT_VIDEO = os.path.join(script_dir, "mindset_shorts.mp4")
 VIDEO_DURATION = 7  # saniye
+
+
+def send_telegram(msg):
+    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
+        return
+    import urllib.request, urllib.parse
+    try:
+        data = urllib.parse.urlencode({
+            "chat_id": TELEGRAM_CHAT_ID,
+            "text": msg,
+            "parse_mode": "HTML"
+        }).encode()
+        req = urllib.request.Request(
+            f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
+            data=data
+        )
+        urllib.request.urlopen(req, timeout=10)
+        print("[Telegram] Mesaj gonderildi.")
+    except Exception as e:
+        print(f"[Telegram] Hata: {e}")
 
 TEMP_BG = "gecici_arka_plan.jpg"
 TEMP_FINAL = "gecici_final.jpg"
@@ -561,9 +583,12 @@ def upload_to_youtube(quote):
             if status:
                 print(f"  %{int(status.progress() * 100)}")
 
-        print(f"\n🎉 YAYINLANDI! https://youtube.com/shorts/{response['id']}")
+        video_id = response['id']
+        print(f"\n🎉 YAYINLANDI! https://youtube.com/shorts/{video_id}")
+        return video_id
     except Exception as e:
         print(f"❌ YouTube yükleme hatası: {e}")
+        return None
 
 
 # ============================================================
@@ -671,7 +696,14 @@ if __name__ == "__main__":
     video_path = create_video(final_img, music_path)
 
     # 6. YouTube'a yükle
-    upload_to_youtube(quote)
+    video_id = upload_to_youtube(quote)
+    if video_id:
+        send_telegram(
+            f"✅ <b>MindsetForge</b> video yayınlandı!\n"
+            f"🔗 https://youtube.com/shorts/{video_id}"
+        )
+    else:
+        send_telegram("❌ <b>MindsetForge</b> YouTube yüklemesi başarısız!")
 
     # 7. Instagram'a yükle
     post_to_instagram(video_path, quote, category)
