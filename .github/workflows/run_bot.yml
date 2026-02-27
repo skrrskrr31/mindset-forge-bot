@@ -10,7 +10,7 @@ on:
 jobs:
   run-bot:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -19,7 +19,7 @@ jobs:
         with:
           python-version: '3.11'
       - name: ffmpeg
-        uses: FedericoCarboni/setup-ffmpeg@v3
+        run: sudo apt-get update && sudo apt-get install -y --fix-missing ffmpeg
       - name: Deps
         run: pip install -r requirements.txt
       - name: Run
@@ -27,14 +27,14 @@ jobs:
           TOKEN_JSON: ${{ secrets.TOKEN_JSON }}
           SECRET_JSON: ${{ secrets.SECRET_JSON }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-          INSTAGRAM_USERNAME: dailymindsetforge
           INSTAGRAM_PASSWORD: ${{ secrets.INSTAGRAM_PASSWORD }}
           INSTAGRAM_SESSION: ${{ secrets.INSTAGRAM_SESSION }}
         run: python 3_mindset_motivasyon_bot.py
-      - name: Kullanilan sozleri kaydet
+
+      - name: Save used quotes
         run: |
-          git config user.name "MindsetForgeBot"
-          git config user.email "bot@mindsetforge.com"
+          git config user.name  "MindsetForge Bot"
+          git config user.email "bot@github.com"
           git add kullanilan_sozler.json || true
-          git diff --staged --quiet || git commit -m "bot: kullanilan sozler guncellendi [skip ci]"
+          git diff --staged --quiet || git commit -m "chore: update used quotes [skip ci]"
           git push || true
