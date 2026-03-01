@@ -154,50 +154,124 @@ def save_used_quote(quote, used_list):
 
 
 # ============================================================
+# TEMA LİSTESİ - Her çalışmada farklı bir konu
+# ============================================================
+THEMES = [
+    ("loneliness and solitude", "night"),
+    ("the real cost of ambition", "mountain"),
+    ("failure as the best teacher", "dark"),
+    ("silence and patience", "forest"),
+    ("time you will never get back", "city"),
+    ("money and wealth mindset", "city"),
+    ("fear of what others think", "dark"),
+    ("comfort zone slowly killing you", "fire"),
+    ("loyalty and betrayal", "dark"),
+    ("self-discipline vs. motivation", "mountain"),
+    ("social media and distraction", "night"),
+    ("people who drain your energy", "dark"),
+    ("wasted years and regret", "night"),
+    ("the gap between potential and reality", "mountain"),
+    ("3am thoughts and inner demons", "night"),
+    ("being busy vs. being productive", "city"),
+    ("saying no and protecting your peace", "forest"),
+    ("jealousy disguised as advice", "dark"),
+    ("mental strength over emotion", "mountain"),
+    ("sacrifice and delayed gratification", "fire"),
+    ("pretending to be someone you are not", "dark"),
+    ("revenge through becoming great", "fire"),
+    ("power of doing less but better", "ocean"),
+    ("books and knowledge no one talks about", "forest"),
+    ("your environment is shaping you silently", "nature"),
+    ("the lie of overnight success", "city"),
+    ("choosing hard now vs. suffering later", "mountain"),
+    ("ego as the silent killer", "dark"),
+    ("what rejection actually means", "dark"),
+    ("morning routines and who you become", "sky"),
+]
+
+
+def _extract_banned_words(used_quotes):
+    """Son 10 sözden sık geçen güçlü kelimeleri çıkar."""
+    from collections import Counter
+    stop = {"is","are","not","the","a","an","you","your","to","of","in","it",
+            "be","but","and","that","this","was","for","on","as","with","if",
+            "they","most","will","do","make","by","or","from","at","no","get",
+            "who","what","how","its","has","have","can","just","so","all","my"}
+    recent = used_quotes[-10:] if len(used_quotes) >= 10 else used_quotes
+    words = []
+    for q in recent:
+        for w in q.lower().split():
+            w = w.strip(".,!?\"'")
+            if len(w) > 4 and w not in stop:
+                words.append(w)
+    common = [w for w, _ in Counter(words).most_common(12)]
+    return common
+
+
+# ============================================================
 # ADIM 1: GEMİNİ'DEN VİRAL SÖZ + KATEGORİ AL
 # ============================================================
 def generate_quote():
-    print("🤖 Gemini'den viral motivasyon sözü üretiliyor...")
+    print("🤖 Groq'tan viral motivasyon sözü üretiliyor...")
     used_quotes = load_used_quotes()
     print(f"📋 Daha önce kullanılan {len(used_quotes)} söz yüklendi.")
 
+    # Tema rotasyonu
+    theme_idx = used_quotes[0].get("theme_idx", 0) if used_quotes and isinstance(used_quotes[0], dict) else 0
+    # kullanilan_sozler.json string listesi → meta bilgiyi ayrı tut
+    meta_path = os.path.join(script_dir, "tema_index.txt")
+    try:
+        theme_idx = int(open(meta_path).read().strip()) if os.path.exists(meta_path) else 0
+    except:
+        theme_idx = 0
+    next_idx = (theme_idx + 1) % len(THEMES)
+    try:
+        with open(meta_path, "w") as f:
+            f.write(str(next_idx))
+    except:
+        pass
+    theme_label, theme_category = THEMES[theme_idx]
+    print(f"🎯 Bu çalışmanın teması: {theme_label}")
+
+    # Son 30 sözü gönder
     avoid_block = ""
     if used_quotes:
-        recent = used_quotes[-30:]
-        avoid_list = "\n".join(f'- "{q}"' for q in recent)
-        avoid_block = f"""
-        PREVIOUSLY USED QUOTES (NEVER repeat or closely paraphrase these):
-{avoid_list}
-"""
+        recent_quotes = used_quotes[-30:]
+        avoid_list = "\n".join(f'- "{q}"' for q in recent_quotes if isinstance(q, str))
+        avoid_block = f"\nPREVIOUSLY USED QUOTES (never repeat or paraphrase):\n{avoid_list}\n"
+
+    # Yasak kelimeler
+    banned_words = _extract_banned_words([q for q in used_quotes if isinstance(q, str)])
+    banned_str = ", ".join(banned_words) if banned_words else ""
+    banned_block = f"\nFORBIDDEN WORDS (these are overused in recent videos, avoid completely): {banned_str}\n" if banned_str else ""
 
     try:
         client = Groq(api_key=GROQ_API_KEY)
-        prompt = f"""
-        You are the editor of the most viral English motivation / stoicism / sigma mindset YouTube Shorts channel.
+        prompt = f"""You are the editor of the most viral English motivation / stoicism / sigma mindset YouTube Shorts channel.
 
-        Generate ONE powerful, viral, short motivational or stoic quote in English.
-        It must be between 8-20 words, punchy, and deeply thought-provoking.
-        Also suggest ONE best background category or ICONIC character from this list:
-        [Muhammad Ali, Thomas Shelby, Tyler Durden, Batman, Joker, Andrew Tate, Marcus Aurelius, Mike Tyson, dark, nature, mountain, city, night, forest, ocean, abstract, fire, sky]
+TODAY'S SPECIFIC TOPIC: "{theme_label}"
+You MUST write a quote specifically about this topic. Do not drift to other themes.
 
-        STRICT RULES:
-        - NEVER use these overused clichés: "pain is temporary", "work in silence", "your only limit is your mind", "don't count the days", "be so good they can't ignore you", "hustle", "grind", "believe in yourself", "never give up", "stay focused", "success is a journey"
-        - The quote must feel SURPRISING or COUNTERINTUITIVE — something the viewer hasn't seen 100 times before
-        - Prefer angles like: brutal honesty, dark wisdom, contrarian truth, or a statement that makes someone stop scrolling
-        - Examples of good style: "Most people don't fail. They just never truly started.", "Comfort is the most socially accepted form of self-destruction.", "The world rewards performance, not effort."
-        - EVERY quote must be 100% unique — never repeat a quote from the list below
+Generate ONE powerful, viral, short quote in English.
+- Between 8-18 words
+- Punchy, counterintuitive, makes someone stop scrolling
+- Must feel like a brutal truth or dark wisdom about: {theme_label}
+{banned_block}
 {avoid_block}
-        Format EXACTLY like this (no extra text):
-        QUOTE: [your quote here]
-        CATEGORY: [one category or character from list]
-        """
+Also pick ONE background from: [Muhammad Ali, Thomas Shelby, Tyler Durden, Batman, Joker, Andrew Tate, Marcus Aurelius, Mike Tyson, dark, nature, mountain, city, night, forest, ocean, abstract, fire, sky]
+Prefer: {theme_category}
+
+Format EXACTLY (no extra text):
+QUOTE: [your quote here]
+CATEGORY: [one option from list]"""
+
         response = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=[{"role": "user", "content": prompt}]
         )
         text = response.choices[0].message.content.strip()
         quote = None
-        category = "dark"
+        category = theme_category
         for line in text.split("\n"):
             if line.startswith("QUOTE:"):
                 quote = line.replace("QUOTE:", "").strip().strip('"')
@@ -205,25 +279,20 @@ def generate_quote():
                 category = line.replace("CATEGORY:", "").strip().lower()
 
         if not quote:
-            raise Exception("Gemini returned empty quote")
+            raise Exception("Empty quote returned")
 
         print(f"✅ Söz: \"{quote}\"")
-        print(f"🎨 Arka Plan Kategorisi: {category}")
+        print(f"🎨 Kategori: {category}")
         save_used_quote(quote, used_quotes)
         return quote, category
     except Exception as e:
-        print(f"⚠️ Söz üretilemedi ({e}). Yedek listeden rastgele seçiliyor.")
+        print(f"⚠️ Söz üretilemedi ({e}). Yedek listeden seçiliyor.")
         fallback_quotes = [
-            ("Pain is temporary. Quitting lasts forever.", "dark"),
-            ("The secret to success is starting before you feel ready.", "city"),
-            ("Discipline is doing what needs to be done even when you don't want to.", "mountain"),
-            ("Work in silence, let your success be your noise.", "night"),
-            ("Don't count the days, make the days count.", "ocean"),
-            ("The only way to do great work is to love what you do.", "abstract"),
-            ("Success is not final, failure is not fatal: it is the courage to continue that counts.", "forest"),
-            ("Your only limit is your mind.", "fire"),
-            ("Be so good they can't ignore you.", "sky"),
-            ("The best revenge is massive success.", "city")
+            ("The years you wasted on comfort will cost you more than failure ever could.", "dark"),
+            ("Most people scroll past their own potential every single day.", "night"),
+            ("Silence is not weakness. It is the loudest answer you can give.", "forest"),
+            ("You are not tired. You are uninspired.", "mountain"),
+            ("The person you fear becoming is still you.", "dark"),
         ]
         q, c = random.choice(fallback_quotes)
         print(f"✅ Yedek Söz: \"{q}\"")
