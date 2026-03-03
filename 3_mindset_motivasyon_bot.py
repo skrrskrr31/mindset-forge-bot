@@ -18,6 +18,7 @@ import requests
 import io
 import base64
 import json
+import signal
 
 # GitHub Actions / Linux ortamında stdout encoding ayarla
 if sys.stdout.encoding != 'utf-8':
@@ -729,6 +730,11 @@ def post_to_instagram(video_path, quote, category):
         except Exception as e:
             print(f"⚠️ Session dosyasi yazılamadı: {e}")
 
+    def _instagram_timeout_handler(signum, frame):
+        raise TimeoutError("Instagram islemi 3 dakikada tamamlanamadi")
+
+    signal.signal(signal.SIGALRM, _instagram_timeout_handler)
+    signal.alarm(180)  # 3 dakika timeout
     try:
         cl = Client()
         cl.delay_range = [1, 3]
@@ -756,8 +762,12 @@ def post_to_instagram(video_path, quote, category):
         )
         print(f"🎉 INSTAGRAM'DA YAYINLANDI! Post ID: {media.pk}")
 
+    except TimeoutError as e:
+        print(f"⏱️ Instagram zaman asimi: {e} — atlanıyor.")
     except Exception as e:
         print(f"❌ Instagram paylaşım hatası: {e}")
+    finally:
+        signal.alarm(0)  # Timeout'u iptal et
 
 
 # ============================================================
