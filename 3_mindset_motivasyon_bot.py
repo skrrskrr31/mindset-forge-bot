@@ -732,8 +732,9 @@ def upload_to_youtube(quote):
             'categoryId': '26'  # How-to & Style
         },
         'status': {
-            'privacyStatus': 'public',
-            'selfDeclaredMadeForKids': False
+            'privacyStatus':           'public',
+            'selfDeclaredMadeForKids': False,
+            'containsSyntheticMedia':  False
         }
     }
 
