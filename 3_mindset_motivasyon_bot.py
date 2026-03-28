@@ -512,15 +512,21 @@ def render_quote_on_image(bg_path, quote, author=""):
     # Yazar adı (varsa çizginin altında)
     if author:
         author_text = f"— {author}"
-        try:
-            author_font = ImageFont.truetype(bold_fonts[0] if os.path.exists(bold_fonts[0]) else bold_fonts[4], 38)
-        except:
-            author_font = ImageFont.load_default(size=38)
+        author_font = None
+        for fp in bold_fonts:
+            if os.path.exists(fp):
+                try:
+                    author_font = ImageFont.truetype(fp, 40)
+                    break
+                except:
+                    continue
+        if not author_font:
+            author_font = ImageFont.load_default(size=40)
         bbox_a = draw.textbbox((0, 0), author_text, font=author_font)
         aw = bbox_a[2] - bbox_a[0]
         ax = (target_w - aw) // 2
         ay = line_y + 18
-        draw.text((ax + 3, ay + 3), author_text, font=author_font, fill=(0, 0, 0, 180))
+        draw.text((ax + 3, ay + 3), author_text, font=author_font, fill=(0, 0, 0, 200))
         draw.text((ax, ay), author_text, font=author_font, fill=(220, 180, 100))
 
     # ==========================================
