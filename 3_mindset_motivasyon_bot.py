@@ -212,14 +212,33 @@ def _extract_banned_words(used_quotes):
 # ============================================================
 # ADIM 1: GEMİNİ'DEN VİRAL SÖZ + KATEGORİ AL
 # ============================================================
+def fetch_zenquotes():
+    """zenquotes.io'dan 50 rastgele gerçek alıntı çeker."""
+    try:
+        import warnings
+        warnings.filterwarnings('ignore')
+        r = requests.get('https://zenquotes.io/api/quotes', timeout=10, verify=False)
+        if r.status_code == 200:
+            data = r.json()
+            quotes = []
+            for item in data:
+                text = item.get('q', '').strip()
+                author = item.get('a', '').strip()
+                if 35 < len(text) < 220 and author and author != 'Unknown':
+                    quotes.append(f'"{text}" — {author}')
+            print(f"🌐 zenquotes.io'dan {len(quotes)} kaliteli alıntı alındı.")
+            return quotes
+    except Exception as e:
+        print(f"⚠️ zenquotes erişilemedi: {e}")
+    return []
+
+
 def generate_quote():
-    print("🤖 Groq'tan viral motivasyon sözü üretiliyor...")
+    print("🤖 Gerçek alıntılardan viral motivasyon sözü seçiliyor...")
     used_quotes = load_used_quotes()
     print(f"📋 Daha önce kullanılan {len(used_quotes)} söz yüklendi.")
 
     # Tema rotasyonu
-    theme_idx = used_quotes[0].get("theme_idx", 0) if used_quotes and isinstance(used_quotes[0], dict) else 0
-    # kullanilan_sozler.json string listesi → meta bilgiyi ayrı tut
     meta_path = os.path.join(script_dir, "tema_index.txt")
     try:
         theme_idx = int(open(meta_path).read().strip()) if os.path.exists(meta_path) else 0
@@ -234,7 +253,7 @@ def generate_quote():
     theme_label, theme_category = THEMES[theme_idx]
     print(f"🎯 Bu çalışmanın teması: {theme_label}")
 
-    # Son 30 sözü gönder
+    # Son 30 sözü gönder (tekrar önleme)
     avoid_block = ""
     if used_quotes:
         recent_quotes = used_quotes[-30:]
@@ -244,15 +263,45 @@ def generate_quote():
     # Yasak kelimeler
     banned_words = _extract_banned_words([q for q in used_quotes if isinstance(q, str)])
     banned_str = ", ".join(banned_words) if banned_words else ""
-    banned_block = f"\nFORBIDDEN WORDS (these are overused in recent videos, avoid completely): {banned_str}\n" if banned_str else ""
+    banned_block = f"\nFORBIDDEN WORDS (overused recently, avoid completely): {banned_str}\n" if banned_str else ""
+
+    # Gerçek alıntıları çek
+    real_quotes = fetch_zenquotes()
 
     try:
         client = Groq(api_key=GROQ_API_KEY)
-        prompt = f"""You are the editor of the most viral English motivation / stoicism / sigma mindset YouTube Shorts channel.
+
+        if real_quotes:
+            # Mod 1: Gerçek alıntılardan en uygun olanı seç
+            quotes_block = "\n".join(f"{i+1}. {q}" for i, q in enumerate(real_quotes[:50]))
+            prompt = f"""You are the editor of a viral English motivation / stoicism YouTube Shorts channel.
+
+TODAY'S TOPIC: "{theme_label}"
+
+From the real quotes below, pick ONE that best fits the topic and would make someone stop scrolling.
+If none fit the topic well, you may write one original quote instead.
+
+REAL QUOTES:
+{quotes_block}
+{avoid_block}
+Rules:
+- Quote must be 8-25 words
+- Must feel like a brutal truth or deep wisdom
+- If picking from list: return it EXACTLY as written (author attribution included)
+- If writing original: make it powerful and topic-specific
+{banned_block}
+Also pick ONE background: [Muhammad Ali, Thomas Shelby, Tyler Durden, Batman, Joker, Andrew Tate, Marcus Aurelius, Mike Tyson, dark, nature, mountain, city, night, forest, ocean, abstract, fire, sky]
+Prefer: {theme_category}
+
+Format EXACTLY (no extra text):
+QUOTE: [the quote text only, no author]
+AUTHOR: [author name or empty if original]
+CATEGORY: [one option from list]"""
+        else:
+            # Mod 2: Groq üretir (fallback)
+            prompt = f"""You are the editor of the most viral English motivation / stoicism / sigma mindset YouTube Shorts channel.
 
 TODAY'S SPECIFIC TOPIC: "{theme_label}"
-You MUST write a quote specifically about this topic. Do not drift to other themes.
-
 Generate ONE powerful, viral, short quote in English.
 - Between 8-18 words
 - Punchy, counterintuitive, makes someone stop scrolling
@@ -264,6 +313,7 @@ Prefer: {theme_category}
 
 Format EXACTLY (no extra text):
 QUOTE: [your quote here]
+AUTHOR:
 CATEGORY: [one option from list]"""
 
         response = client.chat.completions.create(
@@ -272,32 +322,40 @@ CATEGORY: [one option from list]"""
         )
         text = response.choices[0].message.content.strip()
         quote = None
+        author = ""
         category = theme_category
         for line in text.split("\n"):
             if line.startswith("QUOTE:"):
                 quote = line.replace("QUOTE:", "").strip().strip('"')
+            elif line.startswith("AUTHOR:"):
+                author = line.replace("AUTHOR:", "").strip()
             elif line.startswith("CATEGORY:"):
                 category = line.replace("CATEGORY:", "").strip().lower()
 
         if not quote:
             raise Exception("Empty quote returned")
 
-        print(f"✅ Söz: \"{quote}\"")
+        # Yazar varsa ekle
+        display = f'"{quote}"\n— {author}' if author else quote
+        print(f"✅ Söz: {display}")
         print(f"🎨 Kategori: {category}")
         save_used_quote(quote, used_quotes)
-        return quote, category
+        return quote, category, author
     except Exception as e:
         print(f"⚠️ Söz üretilemedi ({e}). Yedek listeden seçiliyor.")
         fallback_quotes = [
-            ("The years you wasted on comfort will cost you more than failure ever could.", "dark"),
-            ("Most people scroll past their own potential every single day.", "night"),
-            ("Silence is not weakness. It is the loudest answer you can give.", "forest"),
-            ("You are not tired. You are uninspired.", "mountain"),
-            ("The person you fear becoming is still you.", "dark"),
+            ("The years you wasted on comfort will cost you more than failure ever could.", "dark", ""),
+            ("Most people scroll past their own potential every single day.", "night", ""),
+            ("Silence is not weakness. It is the loudest answer you can give.", "forest", ""),
+            ("You are not tired. You are uninspired.", "mountain", ""),
+            ("The person you fear becoming is still you.", "dark", ""),
+            ("By failing to prepare, you are preparing to fail.", "mountain", "Benjamin Franklin"),
+            ("The pessimist sees difficulty in every opportunity. The optimist sees opportunity in every difficulty.", "sky", "Winston Churchill"),
+            ("Mastery is not a function of genius or talent, it is a function of time and intense focus.", "dark", "Robert Greene"),
         ]
-        q, c = random.choice(fallback_quotes)
+        q, c, a = random.choice(fallback_quotes)
         print(f"✅ Yedek Söz: \"{q}\"")
-        return q, c
+        return q, c, a
 
 
 # ============================================================
@@ -364,7 +422,7 @@ def download_background(category):
 # ============================================================
 # ADIM 3: SÖZÜ ARKA PLANA YAZ (PIL)
 # ============================================================
-def render_quote_on_image(bg_path, quote):
+def render_quote_on_image(bg_path, quote, author=""):
     print("🖊️ Söz arka plana yazılıyor...")
     
     target_w, target_h = 1080, 1920
@@ -450,6 +508,20 @@ def render_quote_on_image(bg_path, quote):
     # Alt çizgi (ince dekoratif çizgi)
     line_y = start_y + total_h + 20
     draw.rectangle([(target_w // 2 - 150, line_y), (target_w // 2 + 150, line_y + 3)], fill=(200, 200, 200))
+
+    # Yazar adı (varsa çizginin altında)
+    if author:
+        author_text = f"— {author}"
+        try:
+            author_font = ImageFont.truetype(bold_fonts[0] if os.path.exists(bold_fonts[0]) else bold_fonts[4], 38)
+        except:
+            author_font = ImageFont.load_default(size=38)
+        bbox_a = draw.textbbox((0, 0), author_text, font=author_font)
+        aw = bbox_a[2] - bbox_a[0]
+        ax = (target_w - aw) // 2
+        ay = line_y + 18
+        draw.text((ax + 3, ay + 3), author_text, font=author_font, fill=(0, 0, 0, 180))
+        draw.text((ax, ay), author_text, font=author_font, fill=(220, 180, 100))
 
     # ==========================================
     # LOGO + KANAL ADI (Sol Üst)
@@ -777,13 +849,13 @@ if __name__ == "__main__":
     print("\n🚀 MindsetForge Otonom Bot Başlatıldı!\n")
 
     # 1. Söz üret
-    quote, category = generate_quote()
+    quote, category, author = generate_quote()
 
     # 2. Arka plan indir
     bg_path = download_background(category)
 
     # 3. Görsel oluştur
-    final_img = render_quote_on_image(bg_path, quote)
+    final_img = render_quote_on_image(bg_path, quote, author)
 
     # 4. Müzik indir
     music_path = download_music(quote)
