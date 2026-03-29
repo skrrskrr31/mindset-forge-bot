@@ -574,18 +574,62 @@ def render_quote_on_image(bg_path, quote, author=""):
 
 
 # ============================================================
-# ADIM 4: GEMİNİ + YT-DLP İLE MÜZİK SEÇ VE İNDİR
+# ADIM 4: YT-DLP İLE RASTGELE NCS MOTİVASYON MÜZİĞİ İNDİR
 # ============================================================
+MUSIC_QUERIES = [
+    "ytsearch1:NCS hip hop motivational no copyright energetic",
+    "ytsearch1:NCS trap beat hard motivational no copyright",
+    "ytsearch1:NCS phonk aggressive no copyright free",
+    "ytsearch1:NCS release hip hop upbeat no copyright 2024",
+    "ytsearch1:hard trap instrumental motivational no copyright NCS",
+    "ytsearch1:NCS gaming hip hop energetic no copyright",
+    "ytsearch1:phonk drift aggressive no copyright NCS free",
+    "ytsearch1:NCS electronic motivational powerful no copyright",
+    "ytsearch1:drill beat hard motivational no copyright free 2024",
+    "ytsearch1:NCS trap phonk hard no copyright motivational",
+    "ytsearch1:NCS future bass uplifting energetic no copyright",
+    "ytsearch1:epic hip hop beat no copyright NCS free use",
+]
+
 def download_music(quote):
-    """Artık internetten indirmek yerine localdeki music.mp3 dosyasını kullanır."""
-    music_file = os.path.join(script_dir, "music.mp3")
-    
-    if os.path.exists(music_file):
-        print(f"🎵 Yerel müzik dosyası kullanılıyor: music.mp3")
-        return music_file
-    else:
-        print(f"❌ Hata: 'music.mp3' dosyası bulunamadı! Lütfen şarkıyı bu isimle klasöre koyun.")
-        return None
+    """YouTube'dan rastgele NCS motivasyon şarkısı indirir."""
+    import yt_dlp
+    tmp_base = os.path.join(script_dir, "_bg_music")
+    # Eski dosyaları temizle
+    for ext in [".mp3", ".m4a", ".webm", ".mp4"]:
+        p = tmp_base + ext
+        if os.path.exists(p):
+            try: os.remove(p)
+            except: pass
+
+    query = random.choice(MUSIC_QUERIES)
+    print(f"🎵 Müzik indiriliyor...")
+    opts = {
+        "format": "bestaudio/best",
+        "outtmpl": tmp_base + ".%(ext)s",
+        "postprocessors": [{"key": "FFmpegExtractAudio", "preferredcodec": "mp3"}],
+        "noplaylist": True,
+        "quiet": True,
+        "no_warnings": True,
+    }
+    try:
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            ydl.download([query])
+        music_file = tmp_base + ".mp3"
+        if os.path.exists(music_file):
+            print(f"✅ Müzik hazır.")
+            return music_file
+    except Exception as e:
+        print(f"⚠️ Müzik indirilemedi: {e}")
+
+    # Fallback: local music.mp3
+    fallback = os.path.join(script_dir, "music.mp3")
+    if os.path.exists(fallback):
+        print(f"🎵 Yerel müzik kullanılıyor: music.mp3")
+        return fallback
+
+    print("⚠️ Müzik bulunamadı, sessiz devam ediliyor.")
+    return None
 
 
 # ============================================================
