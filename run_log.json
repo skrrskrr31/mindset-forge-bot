@@ -2,11 +2,6 @@
   "bot": "mindset",
   "runs": [
     {
-      "ts": "2026-05-23T11:16:01",
-      "status": "ok",
-      "video_id": "sulNBVQIcNU"
-    },
-    {
       "ts": "2026-05-23T14:46:42",
       "status": "ok",
       "video_id": "tpkyJEoDRYs"
@@ -100,6 +95,11 @@
       "ts": "2026-05-31T09:47:46",
       "status": "ok",
       "video_id": "C0ft1SE_8ZE"
+    },
+    {
+      "ts": "2026-05-31T11:42:31",
+      "status": "ok",
+      "video_id": "ARDdwG5kyoM"
     }
   ]
 }
