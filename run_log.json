@@ -2,11 +2,6 @@
   "bot": "mindset",
   "runs": [
     {
-      "ts": "2026-05-28T10:38:00",
-      "status": "ok",
-      "video_id": "iEuUNVCV_Zk"
-    },
-    {
       "ts": "2026-05-28T10:57:24",
       "status": "ok",
       "video_id": "p3gVj5BIXR0"
@@ -100,6 +95,11 @@
       "ts": "2026-05-31T19:49:26",
       "status": "ok",
       "video_id": "j1I1a4CztAE"
+    },
+    {
+      "ts": "2026-06-01T12:16:27",
+      "status": "error",
+      "error": "YouTube upload failed"
     }
   ]
 }
