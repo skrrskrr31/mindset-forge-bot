@@ -317,7 +317,7 @@ AUTHOR:
 CATEGORY: [one option from list]"""
 
         response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model="openai/gpt-oss-120b",
             messages=[{"role": "user", "content": prompt}]
         )
         text = response.choices[0].message.content.strip()
@@ -734,7 +734,7 @@ def upload_to_youtube(quote):
         ONLY THE TITLE, NO EXTRA TEXT:
         """
         resp = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model="openai/gpt-oss-120b",
             messages=[{"role": "user", "content": title_prompt}]
         )
         title = resp.choices[0].message.content.strip().replace('"', '')
